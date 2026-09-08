@@ -1,1 +1,104 @@
-# Physics-Key-Card-game-
+# PhysDeck — AS Physics 9702 Card Game
+
+A single-page flashcard game for Cambridge International **AS Physics (9702)**
+revision: 206 definitions, formulas, laws and units across all eleven AS topics,
+wrapped in a spaced-repetition system and four game modes.
+
+No build step, no backend, no dependencies — open `index.html` in a browser and
+it runs. All progress lives in `localStorage`.
+
+```
+git clone <this repo> && cd Physics-Key-Card-game-
+open index.html          # or: python3 -m http.server 8000
+```
+
+## Game modes
+
+| Mode | What it does |
+| --- | --- |
+| **Flip Deck** | Classic flashcard. Tap or press space to flip, then swipe right / left (or ← →) to grade yourself. This is what drives the review schedule. |
+| **Formula Recall** | The answer is hidden — type it out. The checker normalises notation (`v^2` ≡ `v²`, `rho` ≡ `ρ`, `1/2` ≡ `½`) and accepts any single clause of a longer model answer, then you self-grade. |
+| **Speed Sprint** | 60 seconds of mixed-topic multiple choice. Three correct in a row raises the combo multiplier, up to ×5; a mistake resets it. Personal bests are kept. |
+| **Match Pairs** | Six-pair memory grid for one topic — match each term to its definition or formula. |
+
+## Spaced repetition
+
+A five-box Leitner system. Each card sits in a box that sets its review interval:
+
+| Box | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- |
+| Next review | 1 day | 2 days | 4 days | 8 days | 16 days |
+
+- A correct grade moves the card up one box, doubling the interval.
+- A wrong grade drops it straight back to box 1, and it comes round again before
+  the end of the current session.
+- Flip Deck and Formula Recall move cards between boxes, because both ask you to
+  grade yourself deliberately. Speed Sprint and Match Pairs record exposure and
+  XP but leave the schedule alone — recognising an answer among four options is
+  not the same as recalling it.
+- Each session queue is built due-cards-first (most overdue first), then unseen
+  cards, then everything else.
+
+## Progress
+
+- **XP** per correct answer, weighted by card difficulty and by mode
+  (recall pays best, sprint least). Levels need progressively more XP.
+- **Ranks** from *Kinematics Cadet* up to *Field Theorist*.
+- **Per-topic mastery** as radial gauges — the average box level across every
+  card in that topic, so 100% means the whole topic is in box 5.
+- **Daily streak**, kept alive by answering at least one card a day.
+- **Local leaderboard** of your top five Speed Sprint scores.
+
+## Files
+
+| File | Contents |
+| --- | --- |
+| `index.html` | Markup for the HUD and all six screens |
+| `style.css` | Dark lab/HUD theme — topic-coded glow, glassmorphism, 3D card flip |
+| `app.js` | Leitner scheduling, the four modes, XP/levels, persistence, particle FX |
+| `data.js` | The card content and the topic list |
+
+## Content
+
+| # | Topic | Cards |
+| --- | --- | --- |
+| 1 | Physical Quantities & Units | 23 |
+| 2 | Kinematics | 21 |
+| 3 | Dynamics | 18 |
+| 4 | Forces, Density & Pressure | 16 |
+| 5 | Work, Energy & Power | 15 |
+| 6 | Deformation of Solids | 15 |
+| 7 | Waves | 21 |
+| 8 | Superposition | 19 |
+| 9 | Electricity | 22 |
+| 10 | D.C. Circuits | 15 |
+| 11 | Particle & Nuclear Physics | 21 |
+
+### Adding cards
+
+Append to the `CARDS` array in `data.js`:
+
+```js
+{
+  id: "kin-22",                       // unique
+  topic: "kin",                       // an id from the TOPICS array
+  type: "formula",                    // formula | definition | theorem | unit
+  term: "Equation of motion (no time)",
+  answer: "v² = u² + 2as",
+  detail: "Derived from v = u + at and s = (u+v)t/2 — used when t is unknown.",
+  difficulty: 2                       // 1-3, weights XP
+}
+```
+
+`formula` and `unit` cards render in the monospace face so exponents and
+subscripts stay legible; the other two render in the body face. Nothing else
+needs changing — topics, counts, gauges and every mode read straight from the
+array. Records for cards that no longer exist are dropped from saved progress
+on load.
+
+## Notes
+
+- Keyboard: `space` flips, `←` / `→` grade, `1`-`4` answer in Sprint, `Esc`
+  leaves a mode.
+- Fully responsive; tested down to 390 px wide.
+- `Reset all progress` on the home screen clears everything.

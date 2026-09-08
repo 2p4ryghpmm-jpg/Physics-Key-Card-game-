@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e14">
+<meta name="description" content="PhysDeck — a spaced-repetition flashcard game for Cambridge AS Physics 9702.">
+<title>PhysDeck — AS Physics 9702</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛️</text></svg>">
+</head>
+<body>
+
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-glow" aria-hidden="true"></div>
+
+<!-- ============ HUD HEADER ============ -->
+<header class="hud">
+  <button class="hud__back" id="btn-back" hidden aria-label="Back to home">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+
+  <div class="hud__brand">
+    <span class="hud__logo">⚛</span>
+    <div>
+      <h1>Phys<span>Deck</span></h1>
+      <p>AS Physics · 9702</p>
+    </div>
+  </div>
+
+  <div class="hud__progress">
+    <div class="hud__rank">
+      <span class="hud__rank-name" id="rank-name">Kinematics Cadet</span>
+      <span class="hud__rank-lvl">LVL <b id="rank-level">1</b></span>
+    </div>
+    <div class="xpbar" role="progressbar" aria-label="Experience to next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="xpbar">
+      <div class="xpbar__fill" id="xpbar-fill"></div>
+    </div>
+    <div class="hud__xp"><span id="xp-text">0 / 200 XP</span></div>
+  </div>
+
+  <div class="hud__streak" id="streak-chip" title="Daily streak">
+    <span class="hud__streak-icon">🔥</span>
+    <span id="streak-count">0</span>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ HOME ============ -->
+  <section class="screen is-active" id="screen-home">
+
+    <div class="stats">
+      <div class="stat stat--due">
+        <span class="stat__val" id="stat-due">0</span>
+        <span class="stat__label">Due today</span>
+      </div>
+      <div class="stat">
+        <span class="stat__val" id="stat-mastered">0</span>
+        <span class="stat__label">Mastered</span>
+      </div>
+      <div class="stat">
+        <span class="stat__val" id="stat-seen">0<small>/206</small></span>
+        <span class="stat__label">Cards seen</span>
+      </div>
+      <div class="stat">
+        <span class="stat__val" id="stat-best">—</span>
+        <span class="stat__label">Best sprint</span>
+      </div>
+    </div>
+
+    <h2 class="section-title">Game modes</h2>
+    <div class="modes">
+      <button class="mode" data-mode="flip" style="--accent:#4895ef">
+        <span class="mode__icon">🗂</span>
+        <span class="mode__name">Flip Deck</span>
+        <span class="mode__desc">Tap to flip, swipe to grade. Feeds your spaced-repetition queue.</span>
+        <span class="mode__tag" id="mode-flip-tag">0 due</span>
+      </button>
+      <button class="mode" data-mode="recall" style="--accent:#f72585">
+        <span class="mode__icon">⌨</span>
+        <span class="mode__name">Formula Recall</span>
+        <span class="mode__desc">Type the formula or definition from memory, then self-grade.</span>
+        <span class="mode__tag">Type it out</span>
+      </button>
+      <button class="mode" data-mode="sprint" style="--accent:#06d6a0">
+        <span class="mode__icon">⚡</span>
+        <span class="mode__name">Speed Sprint</span>
+        <span class="mode__desc">60 seconds, all topics, multiple choice. Combo multiplier on a streak.</span>
+        <span class="mode__tag">60 s</span>
+      </button>
+      <button class="mode" data-mode="match" style="--accent:#ffd166">
+        <span class="mode__icon">🧩</span>
+        <span class="mode__name">Match Pairs</span>
+        <span class="mode__desc">Memory grid: pair each term with its definition or formula.</span>
+        <span class="mode__tag">6 pairs</span>
+      </button>
+    </div>
+
+    <h2 class="section-title">
+      Topic mastery
+      <span class="section-title__hint" id="overall-mastery">0% overall</span>
+    </h2>
+    <div class="gauges" id="gauges"></div>
+
+    <div class="home-foot">
+      <button class="btn btn--ghost" id="btn-reset">Reset all progress</button>
+    </div>
+  </section>
+
+  <!-- ============ FLIP DECK ============ -->
+  <section class="screen" id="screen-flip">
+    <div class="modebar">
+      <div class="modebar__title" id="flip-title">Flip Deck</div>
+      <div class="modebar__meta"><span id="flip-counter">0 / 0</span></div>
+    </div>
+    <div class="deckprogress"><div class="deckprogress__fill" id="flip-progress"></div></div>
+
+    <div class="cardstage" id="flip-stage">
+      <div class="flashcard" id="flip-card" tabindex="0" role="button"
+           aria-label="Flashcard. Press space or tap to flip.">
+        <div class="flashcard__inner">
+          <div class="flashcard__face flashcard__face--front">
+            <div class="flashcard__chips">
+              <span class="chip chip--topic" id="flip-topic">Topic</span>
+              <span class="chip" id="flip-type">definition</span>
+              <span class="chip chip--box" id="flip-box">Box 1</span>
+            </div>
+            <div class="flashcard__term" id="flip-term"></div>
+            <div class="flashcard__hint">tap · space to flip</div>
+          </div>
+          <div class="flashcard__face flashcard__face--back">
+            <div class="flashcard__chips">
+              <span class="chip chip--topic" id="flip-topic-b">Topic</span>
+            </div>
+            <div class="flashcard__answer" id="flip-answer"></div>
+            <div class="flashcard__detail" id="flip-detail"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grade" id="flip-grade">
+      <button class="btn btn--bad" id="btn-again">
+        <span>✕</span> Review again
+      </button>
+      <button class="btn btn--good" id="btn-knew">
+        <span>✓</span> Knew it
+      </button>
+    </div>
+    <p class="keyhint">← review again · → knew it · space flips</p>
+  </section>
+
+  <!-- ============ FORMULA RECALL ============ -->
+  <section class="screen" id="screen-recall">
+    <div class="modebar">
+      <div class="modebar__title" id="recall-title">Formula Recall</div>
+      <div class="modebar__meta"><span id="recall-counter">0 / 0</span></div>
+    </div>
+    <div class="deckprogress"><div class="deckprogress__fill" id="recall-progress"></div></div>
+
+    <div class="recall">
+      <div class="recall__prompt">
+        <div class="flashcard__chips">
+          <span class="chip chip--topic" id="recall-topic">Topic</span>
+          <span class="chip" id="recall-type">formula</span>
+        </div>
+        <div class="recall__term" id="recall-term"></div>
+      </div>
+
+      <div class="recall__input-wrap" id="recall-input-wrap">
+        <input class="recall__input" id="recall-input" type="text" autocomplete="off"
+               autocapitalize="off" spellcheck="false" placeholder="type your answer…"
+               aria-label="Your answer">
+        <button class="btn btn--primary" id="btn-check">Check</button>
+      </div>
+
+      <div class="recall__result" id="recall-result" hidden>
+        <div class="recall__verdict" id="recall-verdict"></div>
+        <div class="recall__row">
+          <span class="recall__label">Your answer</span>
+          <span class="recall__yours" id="recall-yours"></span>
+        </div>
+        <div class="recall__row">
+          <span class="recall__label">Model answer</span>
+          <span class="recall__model" id="recall-model"></span>
+        </div>
+        <div class="recall__detail" id="recall-detail"></div>
+        <p class="recall__selfgrade">Mark yourself honestly — this updates your review schedule.</p>
+        <div class="grade">
+          <button class="btn btn--bad" id="btn-recall-bad">✕ Missed it</button>
+          <button class="btn btn--good" id="btn-recall-good">✓ Got it</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPEED SPRINT ============ -->
+  <section class="screen" id="screen-sprint">
+    <div class="sprintbar">
+      <div class="sprintbar__item">
+        <span class="sprintbar__label">Time</span>
+        <span class="sprintbar__val" id="sprint-time">60</span>
+      </div>
+      <div class="sprintbar__item sprintbar__item--score">
+        <span class="sprintbar__label">Score</span>
+        <span class="sprintbar__val" id="sprint-score">0</span>
+      </div>
+      <div class="sprintbar__item">
+        <span class="sprintbar__label">Combo</span>
+        <span class="sprintbar__val" id="sprint-combo">×1</span>
+      </div>
+    </div>
+    <div class="timerbar"><div class="timerbar__fill" id="sprint-timerfill"></div></div>
+
+    <div class="sprint">
+      <div class="sprint__prompt">
+        <span class="chip chip--topic" id="sprint-topic">Topic</span>
+        <div class="sprint__term" id="sprint-term"></div>
+      </div>
+      <div class="sprint__options" id="sprint-options"></div>
+    </div>
+  </section>
+
+  <!-- ============ MATCH PAIRS ============ -->
+  <section class="screen" id="screen-match">
+    <div class="modebar">
+      <div class="modebar__title" id="match-title">Match Pairs</div>
+      <div class="modebar__meta">
+        <span id="match-moves">0 moves</span> ·
+        <span id="match-found">0 / 6</span>
+      </div>
+    </div>
+    <div class="matchgrid" id="matchgrid"></div>
+    <div class="home-foot">
+      <button class="btn btn--ghost" id="btn-match-again">New grid</button>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section class="screen" id="screen-results">
+    <div class="results">
+      <div class="results__badge" id="results-badge">⚡</div>
+      <h2 class="results__title" id="results-title">Round complete</h2>
+      <p class="results__sub" id="results-sub"></p>
+      <div class="results__stats" id="results-stats"></div>
+      <div class="results__actions">
+        <button class="btn btn--primary" id="btn-results-again">Play again</button>
+        <button class="btn btn--ghost" id="btn-results-home">Home</button>
+      </div>
+      <div class="leaderboard" id="leaderboard" hidden>
+        <h3>Personal bests</h3>
+        <ol id="leaderboard-list"></ol>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ TOPIC PICKER ============ -->
+<div class="sheet" id="topic-sheet" hidden>
+  <div class="sheet__backdrop" data-close-sheet></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet__head">
+      <h2 id="sheet-title">Choose a topic</h2>
+      <button class="sheet__close" data-close-sheet aria-label="Close">✕</button>
+    </div>
+    <div class="sheet__list" id="topic-list"></div>
+  </div>
+</div>
+
+<!-- toast / xp popups -->
+<div class="toaster" id="toaster" aria-live="polite"></div>
+<canvas id="fx" class="fx" aria-hidden="true"></canvas>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
