@@ -41,6 +41,18 @@
     theorem: 'law / theorem', unit: 'unit'
   };
 
+  /* What the card is asking for. A card can override this with its own
+     `asks` string — needed wherever the term alone leaves it open, such as
+     which of the four equations of motion, or whether a unit card wants the
+     unit defined, expressed in base units, or given as a value. */
+  const ASK_DEFAULT = {
+    formula:    'Give the formula',
+    definition: 'Give the definition',
+    theorem:    'State the law or relationship',
+    unit:       'Give the unit or value'
+  };
+  function askFor(card) { return card.asks || ASK_DEFAULT[card.type] || 'Recall this'; }
+
   /* ---------------------------------------------------------
      Tiny helpers
      --------------------------------------------------------- */
@@ -490,6 +502,7 @@
     $('flip-type').textContent = TYPE_LABEL[card.type] || card.type;
     const r = rec(card.id);
     $('flip-box').textContent = r ? ('Box ' + r.box + '/' + MAX_BOX) : 'New card';
+    $('flip-ask').textContent = askFor(card);
     $('flip-term').textContent = card.term;
     $('flip-answer').textContent = card.answer;
     $('flip-answer').classList.toggle('is-mono', isMono(card));
@@ -702,6 +715,7 @@
     $('screen-recall').style.setProperty('--accent', topicColor(card.topic));
     $('recall-topic').textContent = topicName(card.topic);
     $('recall-type').textContent = TYPE_LABEL[card.type] || card.type;
+    $('recall-ask').textContent = askFor(card);
     $('recall-term').textContent = card.term;
     $('recall-counter').textContent = (recall.index + 1) + ' / ' + recall.queue.length;
     $('recall-progress').style.width = ((recall.index / recall.queue.length) * 100) + '%';
@@ -828,6 +842,7 @@
 
     $('screen-sprint').style.setProperty('--accent', topicColor(card.topic));
     $('sprint-topic').textContent = topicName(card.topic);
+    $('sprint-ask').textContent = askFor(card);
     $('sprint-term').textContent = card.term;
 
     /* Distractors: same type first (they read alike), then anything. */

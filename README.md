@@ -21,6 +21,16 @@ open index.html          # or: python3 -m http.server 8000
 | **Speed Sprint** | 60 seconds of mixed-topic multiple choice. Three correct in a row raises the combo multiplier, up to ×5; a mistake resets it. Personal bests are kept. |
 | **Match Pairs** | Six-pair memory grid for one topic — match each term to its definition or formula. |
 
+## What each card asks for
+
+Every card front carries three things: a **topic chip**, a **type chip**
+(formula / definition / law / unit), and an **instruction line** saying what to
+produce. Where a term alone is ambiguous the instruction names the specifics —
+*Give the equation of motion linking v, u, a and s* rather than a bare
+"Equation of motion (no time)". The same line appears in Formula Recall and
+Speed Sprint, so the task is never guesswork. Match Pairs leaves it off: every
+answer is already face-up on the grid, so there is nothing to disambiguate.
+
 ## Spaced repetition
 
 A five-box Leitner system. Each card sits in a box that sets its review interval:
@@ -84,11 +94,20 @@ Append to the `CARDS` array in `data.js`:
   topic: "kin",                       // an id from the TOPICS array
   type: "formula",                    // formula | definition | theorem | unit
   term: "Equation of motion (no time)",
+  asks: "Give the equation of motion linking v, u, a and s",   // optional
   answer: "v² = u² + 2as",
   detail: "Derived from v = u + at and s = (u+v)t/2 — used when t is unknown.",
   difficulty: 2                       // 1-3, weights XP
 }
 ```
+
+`asks` is the instruction shown on the card front. Leave it out and one is
+derived from `type` — *Give the formula*, *Give the definition*, *State the law
+or relationship*, *Give the unit or value*. Set it wherever the term alone
+doesn't pin down the answer: which of the four equations of motion is wanted,
+whether a unit card wants the unit defined or expressed in base units, or when
+the answer is the name of a quantity rather than a law. 81 of the 206 cards
+carry one.
 
 `formula` and `unit` cards render in the monospace face so exponents and
 subscripts stay legible; the other two render in the body face. Nothing else
