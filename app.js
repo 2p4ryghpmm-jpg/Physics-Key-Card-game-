@@ -21,12 +21,13 @@
      40-question count and compresses it into five minutes. Change
      SPRINT_QUOTA alone to re-pitch the pace. */
   const EXAM = { questions: 40, minutes: 75 };
-  const SPRINT_SECONDS = 300;         /* 5 minutes */
-  const SPRINT_QUOTA = 40;            /* questions that must be answered */
-  const SPRINT_QUESTION_LIMIT = 12;   /* seconds on one question before it is lost */
-  const SPRINT_WRONG_PENALTY = 4;     /* seconds off the clock for a miss */
-  const SPRINT_REVERSE_CHANCE = 0.35; /* share of questions asked answer → term */
-  const SPRINT_NO_REPEAT = 14;        /* questions before a card may come round again */
+  const SPRINT_SECONDS = 120;         /* 2 minutes */
+  const SPRINT_QUOTA = 16;            /* questions that must be answered — 7.5 s each */
+  const SPRINT_QUESTION_LIMIT = 8;    /* seconds on one question before it is lost */
+  const SPRINT_WRONG_PENALTY = 5;     /* seconds off the clock for a miss */
+  const SPRINT_REVERSE_CHANCE = 0.5;  /* share of questions asked answer → term */
+  const SPRINT_NO_REPEAT = 10;        /* questions before a card may come round again */
+  const SPRINT_NEAR_POOL = 6;         /* closest wordings to draw the three options from */
   const MATCH_PAIRS = 6;
   /* XP awarded per correct answer = difficulty x weight for the mode. */
   const XP_WEIGHT = { flip: 10, recall: 12, sprint: 5, match: 6 };
@@ -831,7 +832,7 @@
     pool: [], recent: []
   };
 
-  function comboMultiplier(combo) { return clamp(1 + Math.floor(combo / 3), 1, 5); }
+  function comboMultiplier(combo) { return clamp(1 + Math.floor(combo / 4), 1, 5); }
 
   function mmss(totalSeconds) {
     const m = Math.floor(totalSeconds / 60);
@@ -843,40 +844,52 @@
      more often than easy ones you have already banked. */
   function sprintPool() {
     const pool = [];
+    const byDifficulty = [0, 1, 3, 6];
     CARDS.forEach(function (c) {
       const r = rec(c.id);
-      let weight = c.difficulty;
-      if (r && r.wrong > r.right) weight += 2;
-      if (r && r.box <= 2) weight += 1;
+      let weight = byDifficulty[c.difficulty] || 1;
+      if (r && r.wrong > r.right) weight += 3;
+      if (r && r.box <= 2) weight += 2;
       if (!r) weight += 1;
       for (let i = 0; i < weight; i++) pool.push(c);
     });
     return shuffle(pool);
   }
 
-  /* The difficulty lever. Options are drawn from the SAME TOPIC and the same
-     card type wherever possible, so the four suvat equations sit together and
-     you cannot eliminate by topic alone. */
+  /* The difficulty lever. Options come from the SAME TOPIC and the same card
+     type, and within that pool the closest wordings win — so "s = ut + ½at²"
+     is answered against "s = (u+v)t/2" and "v = u + at", not against something
+     from Waves. The nearest SPRINT_NEAR_POOL are shuffled before three are
+     taken, so the same card does not always show the same three decoys. */
   function distractorsFor(card, field) {
+    const target = normalise(card[field]);
     const used = {};
-    used[normalise(card[field])] = true;
+    used[target] = true;
     const out = [];
-    const take = function (list) {
-      shuffle(list).forEach(function (c) {
+
+    const take = function (list, byNearness) {
+      let pool = list.filter(function (c) {
+        return c[field] && !used[normalise(c[field])];
+      });
+      if (byNearness) {
+        pool = pool.sort(function (a, b) {
+          return similarity(normalise(b[field]), target) - similarity(normalise(a[field]), target);
+        }).slice(0, SPRINT_NEAR_POOL);
+      }
+      shuffle(pool).forEach(function (c) {
         if (out.length >= 3) return;
-        const text = c[field];
-        if (!text) return;
-        const key = normalise(text);
+        const key = normalise(c[field]);
         if (used[key]) return;
         used[key] = true;
-        out.push(text);
+        out.push(c[field]);
       });
     };
+
     const others = CARDS.filter(function (c) { return c.id !== card.id; });
-    take(others.filter(function (c) { return c.topic === card.topic && c.type === card.type; }));
-    take(others.filter(function (c) { return c.topic === card.topic; }));
-    take(others.filter(function (c) { return c.type === card.type; }));
-    take(others);
+    take(others.filter(function (c) { return c.topic === card.topic && c.type === card.type; }), true);
+    take(others.filter(function (c) { return c.topic === card.topic; }), true);
+    take(others.filter(function (c) { return c.type === card.type; }), false);
+    take(others, false);
     return out;
   }
 
@@ -889,7 +902,8 @@
     sprint.endsAt = Date.now() + SPRINT_SECONDS * 1000;
     $('sprint-count').innerHTML = '0<small>/' + SPRINT_QUOTA + '</small>';
     $('sprint-pacehint').textContent =
-      SPRINT_QUOTA + ' questions in ' + mmss(SPRINT_SECONDS) + ' · Paper 1 count at recall speed';
+      SPRINT_QUOTA + ' questions in ' + mmss(SPRINT_SECONDS) + ' · ' +
+      (SPRINT_SECONDS / SPRINT_QUOTA).toFixed(1) + ' s each';
     showScreen('sprint');
     updateSprintHud();
     nextSprintQuestion();
@@ -906,7 +920,7 @@
     const secs = Math.ceil(left / 1000);
     $('sprint-time').textContent = mmss(secs);
     $('sprint-timerfill').style.width = ((left / (SPRINT_SECONDS * 1000)) * 100) + '%';
-    const urgent = secs <= 30;
+    const urgent = secs <= 20;
     $('sprint-timerfill').classList.toggle('is-urgent', urgent);
     $('sprint-time').parentElement.classList.toggle('is-urgent', urgent);
 
@@ -1103,8 +1117,11 @@
         { val: perQuestion ? perQuestion.toFixed(1) + 's' : '—', label: 'Per question' }
       ],
       note: met
-        ? 'At this rate you would clear all ' + EXAM.questions + ' Paper 1 questions with time to spare.'
-        : 'Paper 1 is ' + EXAM.questions + ' questions in ' + EXAM.minutes + ' minutes. Keep the pace bar out of the red.',
+        ? 'You averaged ' + perQuestion.toFixed(1) + ' s a question. Paper 1 allows ' +
+          Math.round((EXAM.minutes * 60) / EXAM.questions) + ' s each — but those carry a full stem and working, ' +
+          'where this is pure recall at speed.'
+        : 'The quota needs ' + (SPRINT_SECONDS / SPRINT_QUOTA).toFixed(1) +
+          ' s a question. Keep the pace pill out of the red.',
       again: startSprint,
       leaderboard: entry
     });

@@ -18,7 +18,7 @@ open index.html          # or: python3 -m http.server 8000
 | --- | --- |
 | **Flip Deck** | Classic flashcard. Tap or press space to flip, then swipe right / left (or ← →) to grade yourself. This is what drives the review schedule. |
 | **Formula Recall** | The answer is hidden — type it out. The checker normalises notation (`v^2` ≡ `v²`, `rho` ≡ `ρ`, `1/2` ≡ `½`) and accepts any single clause of a longer model answer, then you self-grade. |
-| **Speed Sprint** | A 5-minute exam-pace drill with a compulsory 40-question quota. See below. |
+| **Speed Sprint** | A 2-minute drill with a compulsory 16-question quota. See below. |
 | **Match Pairs** | Six-pair memory grid for one topic — match each term to its definition or formula. |
 
 ## What each card asks for
@@ -36,39 +36,45 @@ shaded area under a force-time graph, the nodes and antinodes on a stationary
 wave. 27 cards have one. Match Pairs leaves it off: every
 answer is already face-up on the grid, so there is nothing to disambiguate.
 
-## Speed Sprint and exam pace
+## Speed Sprint
 
-Cambridge 9702 **Paper 1 is 40 four-choice questions in 1 hour 15 minutes** —
-112 seconds a question. Those carry full stems and working, though; these are
-pure recall, so the drill keeps the paper's 40-question count and compresses it
-into **5 minutes**, which is 7.5 seconds a question.
+A **2-minute round with a compulsory 16-question quota** — 7.5 seconds a
+question.
 
-The quota is compulsory. Answer fewer than 40 and the run is marked *Pace not
+For reference, Cambridge 9702 **Paper 1 is 40 four-choice questions in 1 hour
+15 minutes**, about 113 seconds each. This drill is deliberately far faster:
+those questions carry a full stem and working, where these are pure recall, so
+the point is answering under time pressure rather than reproducing exam
+conditions.
+
+The quota is compulsory. Answer fewer than 16 and the run is marked *Pace not
 met* and is **not** recorded as a personal best, however high the score. A live
 pace pill reads *Ahead by n* / *On pace* / *Behind by n* against the rate you
-need, so you can feel the pacing rather than work it out afterwards.
+need, so you feel the pacing during the round instead of working it out after.
 
 What makes it hard:
 
-- **Distractors come from the same topic and the same card type.** All four
-  equations of motion appear together; the four options for an Electricity card
-  are four Electricity answers. You cannot eliminate by topic or by shape.
-- **12 seconds a question.** A per-question bar runs down beside the options;
-  let it empty and the question is marked wrong and moves on.
-- **A wrong answer or a timeout costs 4 seconds** off the round clock, so
-  mistakes cost you quota as well as accuracy.
-- **About a third of questions run backwards** — you are shown the answer and
-  must name the quantity, law or unit it belongs to.
-- **The draw is weighted** towards harder cards, cards in low Leitner boxes, and
-  cards you have got wrong more often than right. A card cannot reappear for 14
-  questions.
-- **Scoring rewards speed**: a question answered instantly is worth roughly
-  twice one answered at the buzzer, before the combo multiplier (up to ×5).
+- **The four options are the four most similar answers in the topic.** Options
+  are drawn from the same topic and the same card type, and within that pool
+  they are ranked by how closely their wording matches the right answer. So
+  `s = ut + ½at²` is answered against `s = (u+v)t/2` and `v = u + at`, and
+  "Tensile strain" against the definitions of stress, Young modulus and the
+  spring constant. The nearest six are shuffled before three are taken, so the
+  same card doesn't always show the same decoys.
+- **8 seconds a question.** A bar runs down beside the options; let it empty and
+  the question is wrong and moves on.
+- **A wrong answer or timeout costs 5 seconds** of round clock. Sitting out the
+  round only gets you 9 questions of the 16, so passive play cannot pass.
+- **Half the questions run backwards** — you are shown the answer and must name
+  the quantity, law or unit.
+- **The draw is weighted** hard towards difficulty-3 cards, low Leitner boxes,
+  and cards you miss more often than you hit. No repeats for 10 questions.
+- **Scoring rewards speed**, and the combo multiplier now needs four correct in
+  a row per step rather than three.
 
-To re-pitch the pace, change `SPRINT_QUOTA` in `app.js`. Setting it to 3 would
-be literal Paper 1 pace for a 5-minute block; 40 is the recall-speed target.
-`SPRINT_SECONDS`, `SPRINT_QUESTION_LIMIT`, `SPRINT_WRONG_PENALTY` and
-`SPRINT_REVERSE_CHANCE` sit alongside it.
+To re-pitch it, change the constants at the top of `app.js`: `SPRINT_SECONDS`,
+`SPRINT_QUOTA`, `SPRINT_QUESTION_LIMIT`, `SPRINT_WRONG_PENALTY`,
+`SPRINT_REVERSE_CHANCE`, `SPRINT_NEAR_POOL` and `SPRINT_NO_REPEAT`.
 
 ## Spaced repetition
 
@@ -97,7 +103,7 @@ A five-box Leitner system. Each card sits in a box that sets its review interval
   card in that topic, so 100% means the whole topic is in box 5.
 - **Daily streak**, kept alive by answering at least one card a day.
 - **Local leaderboard** of your top five Speed Sprint scores — runs that miss
-  the 40-question quota are not eligible.
+  the 16-question quota are not eligible.
 
 ## Files
 
