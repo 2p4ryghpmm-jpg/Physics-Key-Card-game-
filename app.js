@@ -15,7 +15,18 @@
   /* Leitner review intervals in days, indexed by box number. */
   const BOX_DAYS = [0, 1, 2, 4, 8, 16];
   const SESSION_SIZE = 20;
-  const SPRINT_SECONDS = 60;
+  /* Speed Sprint. Cambridge 9702 Paper 1 is 40 four-choice questions in
+     1 h 15 min, so the paper allows 112 s a question — but those carry full
+     stems and working. These are pure recall, so the drill keeps the paper's
+     40-question count and compresses it into five minutes. Change
+     SPRINT_QUOTA alone to re-pitch the pace. */
+  const EXAM = { questions: 40, minutes: 75 };
+  const SPRINT_SECONDS = 300;         /* 5 minutes */
+  const SPRINT_QUOTA = 40;            /* questions that must be answered */
+  const SPRINT_QUESTION_LIMIT = 12;   /* seconds on one question before it is lost */
+  const SPRINT_WRONG_PENALTY = 4;     /* seconds off the clock for a miss */
+  const SPRINT_REVERSE_CHANCE = 0.35; /* share of questions asked answer → term */
+  const SPRINT_NO_REPEAT = 14;        /* questions before a card may come round again */
   const MATCH_PAIRS = 6;
   /* XP awarded per correct answer = difficulty x weight for the mode. */
   const XP_WEIGHT = { flip: 10, recall: 12, sprint: 5, match: 6 };
@@ -225,12 +236,14 @@
     return name;
   }
 
+  let quietXp = false;   /* set while a sprint is running — see showScreen */
+
   function awardXp(amount) {
     if (amount <= 0) return;
     const before = levelInfo(state.xp).level;
     state.xp += amount;
     const after = levelInfo(state.xp).level;
-    toast('+' + amount + ' XP', 'xp');
+    if (!quietXp) toast('+' + amount + ' XP', 'xp');
     if (after > before) {
       setTimeout(function () { toast('LEVEL ' + after + ' — ' + rankFor(after), 'level'); }, 420);
     }
@@ -347,6 +360,7 @@
     const el = $('screen-' + name);
     if (el) el.classList.add('is-active');
     $('btn-back').hidden = (name === 'home');
+    quietXp = (name === 'sprint');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (name === 'home') renderHome();
   }
@@ -810,18 +824,72 @@
      MODE 3 — SPEED SPRINT
      ========================================================= */
   const sprint = {
-    timer: null, endsAt: 0, score: 0, combo: 0, best: 0,
-    correct: 0, wrong: 0, card: null, locked: false, pool: []
+    timer: null, endsAt: 0, qEndsAt: 0,
+    score: 0, combo: 0, best: 0,
+    correct: 0, wrong: 0, answered: 0, xp: 0,
+    card: null, reverse: false, locked: false,
+    pool: [], recent: []
   };
 
   function comboMultiplier(combo) { return clamp(1 + Math.floor(combo / 3), 1, 5); }
 
+  function mmss(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const sec = totalSeconds % 60;
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  /* Weighted draw: harder cards, and cards you keep getting wrong, come up
+     more often than easy ones you have already banked. */
+  function sprintPool() {
+    const pool = [];
+    CARDS.forEach(function (c) {
+      const r = rec(c.id);
+      let weight = c.difficulty;
+      if (r && r.wrong > r.right) weight += 2;
+      if (r && r.box <= 2) weight += 1;
+      if (!r) weight += 1;
+      for (let i = 0; i < weight; i++) pool.push(c);
+    });
+    return shuffle(pool);
+  }
+
+  /* The difficulty lever. Options are drawn from the SAME TOPIC and the same
+     card type wherever possible, so the four suvat equations sit together and
+     you cannot eliminate by topic alone. */
+  function distractorsFor(card, field) {
+    const used = {};
+    used[normalise(card[field])] = true;
+    const out = [];
+    const take = function (list) {
+      shuffle(list).forEach(function (c) {
+        if (out.length >= 3) return;
+        const text = c[field];
+        if (!text) return;
+        const key = normalise(text);
+        if (used[key]) return;
+        used[key] = true;
+        out.push(text);
+      });
+    };
+    const others = CARDS.filter(function (c) { return c.id !== card.id; });
+    take(others.filter(function (c) { return c.topic === card.topic && c.type === card.type; }));
+    take(others.filter(function (c) { return c.topic === card.topic; }));
+    take(others.filter(function (c) { return c.type === card.type; }));
+    take(others);
+    return out;
+  }
+
   function startSprint() {
     stopSprint();
     sprint.score = 0; sprint.combo = 0; sprint.best = 0;
-    sprint.correct = 0; sprint.wrong = 0; sprint.locked = false;
-    sprint.pool = shuffle(CARDS);
+    sprint.correct = 0; sprint.wrong = 0; sprint.answered = 0; sprint.xp = 0;
+    sprint.locked = false; sprint.recent = [];
+    sprint.pool = sprintPool();
     sprint.endsAt = Date.now() + SPRINT_SECONDS * 1000;
+    $('sprint-count').innerHTML = '0<small>/' + SPRINT_QUOTA + '</small>';
+    $('sprint-pacehint').textContent =
+      SPRINT_QUOTA + ' questions in ' + mmss(SPRINT_SECONDS) + ' · Paper 1 count at recall speed';
     showScreen('sprint');
     updateSprintHud();
     nextSprintQuestion();
@@ -833,55 +901,83 @@
   }
 
   function tickSprint() {
-    const left = Math.max(0, sprint.endsAt - Date.now());
+    const now = Date.now();
+    const left = Math.max(0, sprint.endsAt - now);
     const secs = Math.ceil(left / 1000);
-    $('sprint-time').textContent = secs;
-    const frac = left / (SPRINT_SECONDS * 1000);
-    $('sprint-timerfill').style.width = (frac * 100) + '%';
-    const urgent = secs <= 10;
+    $('sprint-time').textContent = mmss(secs);
+    $('sprint-timerfill').style.width = ((left / (SPRINT_SECONDS * 1000)) * 100) + '%';
+    const urgent = secs <= 30;
     $('sprint-timerfill').classList.toggle('is-urgent', urgent);
     $('sprint-time').parentElement.classList.toggle('is-urgent', urgent);
+
+    /* per-question clock */
+    if (!sprint.locked) {
+      const qLeft = Math.max(0, sprint.qEndsAt - now);
+      const qFrac = qLeft / (SPRINT_QUESTION_LIMIT * 1000);
+      const fill = $('sprint-qfill');
+      fill.style.width = (qFrac * 100) + '%';
+      fill.classList.toggle('is-urgent', qFrac < 0.34);
+      if (qLeft <= 0) { timeoutSprint(); return; }
+    }
+
+    updatePace(left);
     if (left <= 0) endSprint();
+  }
+
+  function updatePace(msLeft) {
+    const elapsed = (SPRINT_SECONDS * 1000) - msLeft;
+    const expected = (elapsed / (SPRINT_SECONDS * 1000)) * SPRINT_QUOTA;
+    const delta = sprint.answered - expected;
+    const el = $('sprint-pace');
+    if (delta >= 1) {
+      el.textContent = 'Ahead by ' + Math.floor(delta);
+      el.className = 'pace is-ahead';
+    } else if (delta > -1) {
+      el.textContent = 'On pace';
+      el.className = 'pace is-on';
+    } else {
+      el.textContent = 'Behind by ' + Math.ceil(-delta);
+      el.className = 'pace is-behind';
+    }
   }
 
   function updateSprintHud() {
     $('sprint-score').textContent = sprint.score;
     $('sprint-combo').textContent = '×' + comboMultiplier(sprint.combo);
+    $('sprint-count').innerHTML = sprint.answered + '<small>/' + SPRINT_QUOTA + '</small>';
+    $('sprint-count').parentElement.classList.toggle('is-met', sprint.answered >= SPRINT_QUOTA);
+  }
+
+  function drawSprintCard() {
+    for (let tries = 0; tries < 60; tries++) {
+      if (!sprint.pool.length) sprint.pool = sprintPool();
+      const c = sprint.pool.pop();
+      if (sprint.recent.indexOf(c.id) === -1) return c;
+    }
+    return CARDS[Math.floor(Math.random() * CARDS.length)];
   }
 
   function nextSprintQuestion() {
-    if (!sprint.pool.length) sprint.pool = shuffle(CARDS);
-    const card = sprint.pool.pop();
+    const card = drawSprintCard();
     sprint.card = card;
     sprint.locked = false;
+    sprint.recent.push(card.id);
+    if (sprint.recent.length > SPRINT_NO_REPEAT) sprint.recent.shift();
+
+    /* Some questions run the other way: here is the answer, name the card. */
+    sprint.reverse = Math.random() < SPRINT_REVERSE_CHANCE;
+    const promptField = sprint.reverse ? 'answer' : 'term';
+    const optionField = sprint.reverse ? 'term' : 'answer';
 
     $('screen-sprint').style.setProperty('--accent', topicColor(card.topic));
     $('sprint-topic').textContent = topicName(card.topic);
-    $('sprint-ask').textContent = askFor(card);
-    $('sprint-term').textContent = card.term;
+    $('sprint-ask').textContent = sprint.reverse
+      ? 'Which quantity, law or unit is this?'
+      : askFor(card);
+    $('sprint-term').textContent = card[promptField];
+    $('sprint-term').classList.toggle('is-mono', sprint.reverse && isMono(card));
 
-    /* Distractors: same type first (they read alike), then anything. */
-    const used = { };
-    used[normalise(card.answer)] = true;
-    const pickFrom = function (list, want) {
-      const out = [];
-      shuffle(list).forEach(function (c) {
-        if (out.length >= want) return;
-        const key = normalise(c.answer);
-        if (used[key]) return;
-        used[key] = true;
-        out.push(c.answer);
-      });
-      return out;
-    };
-    let distractors = pickFrom(CARDS.filter(function (c) {
-      return c.id !== card.id && c.type === card.type;
-    }), 3);
-    if (distractors.length < 3) {
-      distractors = distractors.concat(pickFrom(CARDS.filter(function (c) { return c.id !== card.id; }), 3 - distractors.length));
-    }
-
-    const options = shuffle([card.answer].concat(distractors));
+    const options = shuffle([card[optionField]].concat(distractorsFor(card, optionField)));
     const box = $('sprint-options');
     box.className = 'sprint__options';
     box.innerHTML = '';
@@ -889,11 +985,49 @@
       const b = document.createElement('button');
       b.className = 'opt';
       b.innerHTML = '<span class="opt__key">' + (i + 1) + '</span><span class="opt__text"></span>';
-      b.querySelector('.opt__text').textContent = text;
-      if (isMono(card)) b.querySelector('.opt__text').classList.add('is-mono');
-      b.addEventListener('click', function () { answerSprint(b, text === card.answer); });
+      const t = b.querySelector('.opt__text');
+      t.textContent = text;
+      if (!sprint.reverse && isMono(card)) t.classList.add('is-mono');
+      b.addEventListener('click', function () { answerSprint(b, text === card[optionField]); });
       box.appendChild(b);
     });
+
+    sprint.qEndsAt = Date.now() + SPRINT_QUESTION_LIMIT * 1000;
+    const fill = $('sprint-qfill');
+    fill.classList.remove('is-urgent');
+    fill.style.transition = 'none';
+    fill.style.width = '100%';
+    void fill.offsetWidth;
+    fill.style.transition = '';
+  }
+
+  function revealCorrect(box) {
+    const card = sprint.card;
+    const right = sprint.reverse ? card.term : card.answer;
+    $$('.opt', box).forEach(function (o) {
+      if (o.querySelector('.opt__text').textContent === right) o.classList.add('is-right');
+    });
+  }
+
+  function penalise() {
+    sprint.endsAt -= SPRINT_WRONG_PENALTY * 1000;
+    toast('−' + SPRINT_WRONG_PENALTY + ' s', 'bad');
+  }
+
+  function timeoutSprint() {
+    if (sprint.locked) return;
+    sprint.locked = true;
+    const box = $('sprint-options');
+    box.classList.add('is-locked');
+    sprint.wrong += 1;
+    sprint.answered += 1;
+    sprint.combo = 0;
+    revealCorrect(box);
+    shake(box);
+    penalise();
+    record(sprint.card.id, false, 'sprint');
+    updateSprintHud();
+    setTimeout(function () { if (sprint.timer) nextSprintQuestion(); }, 850);
   }
 
   function answerSprint(btn, correct) {
@@ -902,63 +1036,79 @@
     const card = sprint.card;
     const box = $('sprint-options');
     box.classList.add('is-locked');
+    sprint.answered += 1;
 
     if (correct) {
+      /* Answer fast and the question is worth more. */
+      const qLeft = Math.max(0, sprint.qEndsAt - Date.now());
+      const speed = qLeft / (SPRINT_QUESTION_LIMIT * 1000);
       const mult = comboMultiplier(sprint.combo);
-      const points = Math.round(10 * card.difficulty * mult);
+      const points = Math.round((8 + 14 * speed) * card.difficulty * mult);
       sprint.score += points;
       sprint.combo += 1;
       sprint.best = Math.max(sprint.best, sprint.combo);
       sprint.correct += 1;
+      sprint.xp += card.difficulty * XP_WEIGHT.sprint;
       btn.classList.add('is-right');
       burstFrom(btn, topicColor(card.topic));
       record(card.id, true, 'sprint');
-      if (mult > 1) toast('×' + mult + ' combo · +' + points, 'good');
     } else {
       sprint.combo = 0;
       sprint.wrong += 1;
       btn.classList.add('is-wrong');
-      $$('.opt', box).forEach(function (o) {
-        if (o.querySelector('.opt__text').textContent === card.answer) o.classList.add('is-right');
-      });
+      revealCorrect(box);
       shake(box);
+      penalise();
       record(card.id, false, 'sprint');
     }
 
     updateSprintHud();
     setTimeout(function () {
       if (sprint.timer) nextSprintQuestion();
-    }, correct ? 320 : 900);
+    }, correct ? 260 : 850);
   }
 
   function endSprint() {
     stopSprint();
     $('sprint-timerfill').style.width = '0%';
+    $('sprint-qfill').style.width = '0%';
     const total = sprint.correct + sprint.wrong;
+    const met = sprint.answered >= SPRINT_QUOTA;
+    if (sprint.xp) toast('+' + sprint.xp + ' XP this round', 'xp');
 
-    const entry = {
-      score: sprint.score, correct: sprint.correct,
-      combo: sprint.best, date: dayKey(Date.now())
-    };
-    state.sprint.push(entry);
-    state.sprint.sort(function (a, b) { return b.score - a.score; });
-    state.sprint = state.sprint.slice(0, 5);
-    save();
+    /* The quota is the point of the mode: a run that misses it is not a score. */
+    let entry = null;
+    if (met) {
+      entry = {
+        score: sprint.score, correct: sprint.correct,
+        combo: sprint.best, date: dayKey(Date.now())
+      };
+      state.sprint.push(entry);
+      state.sprint.sort(function (a, b) { return b.score - a.score; });
+      state.sprint = state.sprint.slice(0, 5);
+      save();
+    }
 
+    const perQuestion = sprint.answered ? (SPRINT_SECONDS / sprint.answered) : 0;
     showResults({
-      badge: '⚡',
-      title: sprint.score + ' points',
-      sub: state.sprint[0] === entry ? 'New personal best!' : 'Best so far: ' + state.sprint[0].score,
+      badge: met ? '⚡' : '⏳',
+      title: met ? sprint.score + ' points' : 'Pace not met',
+      sub: met
+        ? (state.sprint[0] === entry ? 'New personal best!' : 'Best so far: ' + state.sprint[0].score)
+        : 'You answered ' + sprint.answered + ' of ' + SPRINT_QUOTA + ' — this run does not count.',
       stats: [
+        { val: sprint.answered + '/' + SPRINT_QUOTA, label: 'Answered' },
         { val: sprint.correct, label: 'Correct' },
-        { val: sprint.wrong, label: 'Missed' },
-        { val: '×' + comboMultiplier(sprint.best), label: 'Top combo' },
-        { val: total ? Math.round((sprint.correct / total) * 100) + '%' : '—', label: 'Accuracy' }
+        { val: total ? Math.round((sprint.correct / total) * 100) + '%' : '—', label: 'Accuracy' },
+        { val: perQuestion ? perQuestion.toFixed(1) + 's' : '—', label: 'Per question' }
       ],
+      note: met
+        ? 'At this rate you would clear all ' + EXAM.questions + ' Paper 1 questions with time to spare.'
+        : 'Paper 1 is ' + EXAM.questions + ' questions in ' + EXAM.minutes + ' minutes. Keep the pace bar out of the red.',
       again: startSprint,
       leaderboard: entry
     });
-    if (state.sprint[0] === entry && sprint.score > 0) {
+    if (entry && state.sprint[0] === entry && sprint.score > 0) {
       burst(window.innerWidth / 2, window.innerHeight / 3, '#ffd166', 60);
     }
   }
@@ -1106,6 +1256,10 @@
       d.querySelector('span').textContent = s.label;
       box.appendChild(d);
     });
+
+    const noteEl = $('results-note');
+    if (cfg.note) { noteEl.textContent = cfg.note; noteEl.hidden = false; }
+    else { noteEl.textContent = ''; noteEl.hidden = true; }
 
     const lb = $('leaderboard');
     if (cfg.leaderboard && state.sprint.length) {

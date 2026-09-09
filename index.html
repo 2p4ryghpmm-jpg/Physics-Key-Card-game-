@@ -86,8 +86,8 @@
       <button class="mode" data-mode="sprint" style="--accent:#06d6a0">
         <span class="mode__icon">⚡</span>
         <span class="mode__name">Speed Sprint</span>
-        <span class="mode__desc">60 seconds, all topics, multiple choice. Combo multiplier on a streak.</span>
-        <span class="mode__tag">60 s</span>
+        <span class="mode__desc">5 minutes, 40 questions, four choices drawn from the same topic. Miss the quota and the run does not count.</span>
+        <span class="mode__tag">5 min · 40 Q</span>
       </button>
       <button class="mode" data-mode="match" style="--accent:#ffd166">
         <span class="mode__icon">🧩</span>
@@ -203,8 +203,12 @@
   <section class="screen" id="screen-sprint">
     <div class="sprintbar">
       <div class="sprintbar__item">
-        <span class="sprintbar__label">Time</span>
-        <span class="sprintbar__val" id="sprint-time">60</span>
+        <span class="sprintbar__label">Time left</span>
+        <span class="sprintbar__val" id="sprint-time">5:00</span>
+      </div>
+      <div class="sprintbar__item sprintbar__item--quota">
+        <span class="sprintbar__label">Answered</span>
+        <span class="sprintbar__val" id="sprint-count">0<small>/40</small></span>
       </div>
       <div class="sprintbar__item sprintbar__item--score">
         <span class="sprintbar__label">Score</span>
@@ -216,6 +220,10 @@
       </div>
     </div>
     <div class="timerbar"><div class="timerbar__fill" id="sprint-timerfill"></div></div>
+    <div class="pacerow">
+      <span class="pace" id="sprint-pace">On pace</span>
+      <span class="pacerow__hint" id="sprint-pacehint"></span>
+    </div>
 
     <div class="sprint">
       <div class="sprint__prompt">
@@ -223,6 +231,7 @@
         <p class="ask" id="sprint-ask"></p>
         <div class="sprint__term" id="sprint-term"></div>
       </div>
+      <div class="qtimer" aria-hidden="true"><div class="qtimer__fill" id="sprint-qfill"></div></div>
       <div class="sprint__options" id="sprint-options"></div>
     </div>
   </section>
@@ -249,6 +258,7 @@
       <h2 class="results__title" id="results-title">Round complete</h2>
       <p class="results__sub" id="results-sub"></p>
       <div class="results__stats" id="results-stats"></div>
+      <p class="results__note" id="results-note" hidden></p>
       <div class="results__actions">
         <button class="btn btn--primary" id="btn-results-again">Play again</button>
         <button class="btn btn--ghost" id="btn-results-home">Home</button>
