@@ -444,6 +444,61 @@ button{ font:inherit; color:inherit; }
   to  { opacity:1; transform:none; }
 }
 
+/* ---- sketch graphs on the revealed side ---- */
+.cardgraph{
+  margin:2px auto 0;
+  width:100%; max-width:390px;
+  padding:10px 12px 6px;
+  border-radius:var(--r-md);
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--stroke);
+  color:var(--ink-dim);            /* currentColor for axes, labels, ticks */
+}
+.cardgraph svg{
+  display:block;
+  width:100%; max-width:340px; height:auto;
+  margin-inline:auto;
+  font-family:var(--font-mono);
+}
+.cardgraph figcaption{
+  margin-top:7px;
+  font-family:var(--font-ui);
+  font-size:11.5px; line-height:1.45;
+  color:var(--accent); opacity:.92;
+  text-align:center; text-wrap:balance;
+}
+.cardgraph .gax{ opacity:.55; }
+.cardgraph .gax line{ stroke:currentColor; stroke-width:1.4; fill:none; }
+.cardgraph .gax polygon{ fill:currentColor; stroke:none; }
+.cardgraph .glbl{ fill:currentColor; opacity:.8; font-size:12px; font-style:italic; }
+.cardgraph .gtick{ fill:currentColor; opacity:.7; font-size:10px; }
+.cardgraph .gin{ fill:var(--accent); opacity:.95; font-size:10.5px; }
+.cardgraph .gcurve{
+  fill:none; stroke:var(--accent); stroke-width:2.6;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.cardgraph .gmirror{
+  fill:none; stroke:var(--accent); stroke-width:1.6;
+  opacity:.4; stroke-dasharray:5 4; stroke-linecap:round;
+}
+.cardgraph .gfill{ fill:var(--accent); opacity:.18; stroke:none; }
+.cardgraph .gguide{
+  fill:none; stroke:currentColor; opacity:.45;
+  stroke-width:1.2; stroke-dasharray:3 3;
+}
+.cardgraph .gdot{ fill:var(--accent); }
+.cardgraph .gbreak{ fill:none; stroke:var(--accent); stroke-width:2; stroke-linecap:round; }
+.cardgraph .gwall line{ stroke:currentColor; opacity:.5; stroke-width:1.6; }
+.cardgraph .gend{ stroke:currentColor; opacity:.85; stroke-width:2.6; stroke-linecap:round; }
+.cardgraph .gdim line{ stroke:currentColor; opacity:.6; stroke-width:1.2; }
+.cardgraph .gdim polygon{ fill:currentColor; opacity:.6; }
+
+/* a card carrying a graph needs more room, and its answer stops stretching */
+.flashcard.has-graph, .flashcard.has-graph .flashcard__inner{ min-height:440px; }
+.flashcard__face--back.has-graph{ gap:10px; }
+.flashcard__face--back.has-graph .flashcard__answer{ flex:0 0 auto; }
+.flashcard__face--back.has-graph .flashcard__detail{ padding-top:10px; }
+
 /* swipe feedback */
 .flashcard.is-gone-right{ transform:translateX(120%) rotate(16deg); opacity:0; }
 .flashcard.is-gone-left { transform:translateX(-120%) rotate(-16deg); opacity:0; }
@@ -808,7 +863,9 @@ button{ font:inherit; color:inherit; }
   .modes{ grid-template-columns:1fr; }
   .gauges{ grid-template-columns:repeat(3,1fr); }
   .flashcard, .flashcard__inner{ min-height:300px; }
+  .flashcard.has-graph, .flashcard.has-graph .flashcard__inner{ min-height:430px; }
   .ask{ font-size:12.5px; }
+  .cardgraph{ padding:8px 8px 4px; }
   .matchgrid{ grid-template-columns:repeat(3,1fr); }
   .tile{ aspect-ratio:3/4; }
   .modebar{ flex-direction:column; align-items:flex-start; gap:3px; }

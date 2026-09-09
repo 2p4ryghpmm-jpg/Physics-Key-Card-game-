@@ -36,6 +36,17 @@
   /* Formulas and units read best in the monospace face; prose does not. */
   function isMono(card) { return card.type === 'formula' || card.type === 'unit'; }
 
+  /* Draw the card's sketch graph into `el`, or hide it if the card has none.
+     The markup comes from GRAPHS in graphs.js — our own strings, never input. */
+  function renderGraph(el, card) {
+    const g = (card.graph && typeof GRAPHS !== 'undefined') ? GRAPHS[card.graph] : null;
+    if (!g) { el.hidden = true; el.innerHTML = ''; return false; }
+    el.innerHTML = g.svg + '<figcaption></figcaption>';
+    el.querySelector('figcaption').textContent = g.caption;
+    el.hidden = false;
+    return true;
+  }
+
   const TYPE_LABEL = {
     formula: 'formula', definition: 'definition',
     theorem: 'law / theorem', unit: 'unit'
@@ -506,6 +517,9 @@
     $('flip-term').textContent = card.term;
     $('flip-answer').textContent = card.answer;
     $('flip-answer').classList.toggle('is-mono', isMono(card));
+    const drewGraph = renderGraph($('flip-graph'), card);
+    $('flip-card').classList.toggle('has-graph', drewGraph);
+    $$('.flashcard__face--back', $('flip-card'))[0].classList.toggle('has-graph', drewGraph);
     $('flip-detail').textContent = card.detail;
 
     $('flip-counter').textContent = (flip.index + 1) + ' / ' + flip.queue.length;
@@ -746,6 +760,7 @@
     $('recall-yours').textContent = typed.trim() || '(left blank)';
     $('recall-model').textContent = card.answer;
     $('recall-model').classList.toggle('is-mono', isMono(card));
+    renderGraph($('recall-graph'), card);
     $('recall-detail').textContent = card.detail;
     $('recall-input-wrap').hidden = true;
     $('recall-result').hidden = false;

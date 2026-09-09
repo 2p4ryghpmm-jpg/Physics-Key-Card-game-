@@ -28,7 +28,12 @@ Every card front carries three things: a **topic chip**, a **type chip**
 produce. Where a term alone is ambiguous the instruction names the specifics —
 *Give the equation of motion linking v, u, a and s* rather than a bare
 "Equation of motion (no time)". The same line appears in Formula Recall and
-Speed Sprint, so the task is never guesswork. Match Pairs leaves it off: every
+Speed Sprint, so the task is never guesswork.
+
+Where a picture explains the answer better than a sentence, the revealed side
+carries a **sketch graph** — the shape of a filament lamp's I-V curve, the
+shaded area under a force-time graph, the nodes and antinodes on a stationary
+wave. 27 cards have one. Match Pairs leaves it off: every
 answer is already face-up on the grid, so there is nothing to disambiguate.
 
 ## Spaced repetition
@@ -67,6 +72,7 @@ A five-box Leitner system. Each card sits in a box that sets its review interval
 | `style.css` | Dark lab/HUD theme — topic-coded glow, glassmorphism, 3D card flip |
 | `app.js` | Leitner scheduling, the four modes, XP/levels, persistence, particle FX |
 | `data.js` | The card content and the topic list |
+| `graphs.js` | The sketch graphs drawn on the revealed side of a card |
 
 ## Content
 
@@ -100,6 +106,18 @@ Append to the `CARDS` array in `data.js`:
   difficulty: 2                       // 1-3, weights XP
 }
 ```
+
+`graph` is optional too — a key into `GRAPHS` in `graphs.js`, which draws a
+small sketch graph on the revealed side under the answer. 27 cards use one
+across 22 drawings: the I-V characteristics, the motion graphs, the
+"area under the graph" cards, the deformation graphs, stationary waves on a
+string and in a closed pipe, and the terminal-p.d.-against-current line.
+
+Each `GRAPHS` entry is `{ svg, caption }`. The SVG is hand-authored and
+self-contained — no libraries, no external references. Axes, ticks and labels
+use `currentColor` so they take the card's own ink; the curve or shaded area
+uses `var(--accent)` so it picks up the topic colour. The caption is rendered
+as an HTML `<figcaption>` rather than SVG text, so it wraps on a phone.
 
 `asks` is the instruction shown on the card front. Leave it out and one is
 derived from `type` — *Give the formula*, *Give the definition*, *State the law
